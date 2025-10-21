@@ -46,4 +46,5 @@ app.use('/api', HocVienRoutes);
 const NhanvienRoutes = require('./routes/NhanvienRoutes');
 app.use('/api', NhanvienRoutes);
 
-app.listen(port, () => console.log(`Server listening on http://localhost:${port}`));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
