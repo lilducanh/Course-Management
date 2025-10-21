@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Danh sách nhân viên</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1200px; margin: 30px auto; }
+    h1 { text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #aaa; padding: 8px; text-align: left; }
+    th { background: #f2f2f2; }
+    tr:nth-child(even) { background: #fafafa; }
+    .sub-row { background-color: #f9f9f9; font-size: 14px; }
+    .clickable-name { cursor: pointer; color: #2196F3; text-decoration: underline; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.4);
+      display: none; align-items: center; justify-content: center; z-index: 999;
+    }
+    .modal {
+      width: min(800px, 95vw); max-height: 90vh; overflow: auto;
+      background: #fff; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .modal-header, .modal-footer { padding: 12px 16px; border-bottom: 1px solid #eee; }
+    .modal-footer { border-top: 1px solid #eee; border-bottom: none; display:flex; gap:8px; justify-content: space-between; align-items:center; }
+    .modal-body { padding: 10px 16px 16px; }
+    .modal-title { font-size: 18px; font-weight: bold; }
+    .modal-actions { display: flex; gap: 8px; align-items: center; }
+    .btn { background:#2196F3; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; text-decoration: none; }
+    .btn:hover { background:#1976D2; }
+    .btn.secondary { background:#eee; color:#333; }
+    .btn.secondary:hover { background:#ddd; }
+
+    /* small action buttons in table */
+    .action-btn { padding:4px 8px; font-size:13px; margin-left:6px; }
+    .btn-edit { background:#4CAF50; }
+    .btn-edit:hover { background:#388E3C; }
+    .btn-delete { background:#F44336; }
+    .btn-delete:hover { background:#D32F2F; }
+
+    /* simple form styles */
+    .form-row { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+    .form-row label { min-width:120px; font-size:14px; }
+    .form-row input[type="text"], .form-row input[type="date"], .form-row input[type="email"], .form-row input[type="tel"], .form-row select {
+      flex:1; padding:6px 8px; border:1px solid #bbb; border-radius:4px;
+    }
+
+    /* Course modal */
+    .course-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .course-table th, .course-table td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+    .course-table th { background: #f4f4f4; }
+  </style>
+</head>
+<body>
+  <h1>Danh sách nhân viên</h1>
+
+    <div style="margin-bottom:10px; display: flex; justify-content: space-between;">
+    <a href="khoahoc.html" class="btn" id="khochoc">Khóa học</a>
+    <button class="btn" id="addBtn" >➕ Thêm nhân viên</button>
+  </div>
+
+  <table id="table-nhanvien">
+    <thead>
+      <tr>
+        <th>Mã NV</th>
+        <th>Họ tên</th>
+        <th>Email</th>
+        <th>Chức danh</th>
+        <th>Phòng ban</th>
+        <th>Ban</th>
+        <th>Ngày sinh</th>
+        <th>SĐT</th>
+        <th>Hành động</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- Add/Edit modal -->
+  <div id="editModalBackdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+      <div class="modal-header">
+        <div class="modal-title" id="editModalTitle">Thêm nhân viên</div>
+      </div>
+      <div class="modal-body">
+        <form id="editForm">
+          <div class="form-row" id="maRow"><label>Mã nhân viên</label><input type="text" id="e_ma" /></div>
+          <div class="form-row"><label>Họ</label><input type="text" id="e_ho" required /></div>
+          <div class="form-row"><label>Tên</label><input type="text" id="e_ten" required /></div>
+          <div class="form-row"><label>Chức danh</label>
+            <select id="e_chuc_danh">
+              <option value="">-- Chọn chức danh --</option>
+              <option value="Chủ tịch HĐQT">Chủ tịch Hội Đồng Quản Trị</option>
+              <option value="TGĐ">Tổng Giám Đốc</option>
+              <option value="PTGD">Phó Tổng Giám Đốc</option>
+              <option value="TB">Trưởng Ban</option>
+              <option value="PTB">Phó Trưởng Ban</option>
+              <option value="TP">Trưởng Phòng</option>
+              <option value="PTP">Phó Trưởng Phòng</option>
+              <option value="Tổ trưởng">Tổ trưởng</option>
+              <option value="chuyên viên">Chuyên Viên</option>
+              <option value="nhân viên">Nhân Viên</option>
+            </select>
+          </div>
+          <div class="form-row"><label>Phòng ban</label><input type="text" id="e_phong_ban" /></div>
+          <div class="form-row"><label>Ban</label><input type="text" id="e_ban" /></div>
+          <div class="form-row"><label>Ngày sinh</label><input type="date" id="e_ngay_sinh" /></div>
+          <div class="form-row"><label>Email</label><input type="email" id="e_email" required /></div>
+          <div class="form-row"><label>SĐT</label><input type="tel" id="e_sdt" /></div>
+
+          <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+            <button type="button" class="btn secondary" onclick="closeEditModal()">Hủy</button>
+            <button type="submit" class="btn">Lưu</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Course modal -->
+  <div id="courseModalBackdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="courseModalTitle">
+      <div class="modal-header">
+        <div class="modal-title" id="courseModalTitle">Khóa học của nhân viên</div>
+        <button class="btn secondary" onclick="closeCourseModal()" style="margin-left: auto;">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="courseContent">
+          <p>Đang tải...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+
+
+    // ====== Utils ======
+    function formatDate(dateString) {
+      if (!dateString) return '';
+      const d = new Date(dateString);
+      const dd = String(d.getDate()).padStart(2,'0');
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+
+    // ====== Load nhân viên ======
+    async function loadNhanVien() {
+      const tbody = document.querySelector('#table-nhanvien tbody');
+      tbody.innerHTML = '<tr><td colspan="9">Đang tải...</td></tr>';
+      try {
+        const resp = await fetch(`${API_BASE}/nhan_vien`);
+        const data = await resp.json();
+        if (!resp.ok) {
+          tbody.innerHTML = `<tr><td colspan="9" style="color:red">${data.message || 'Lỗi tải dữ liệu'}</td></tr>`;
+          return;
+        }
+        const ds = data.danh_sach || data.rows || data.data || [];
+        if (ds.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="9">Chưa có nhân viên nào</td></tr>';
+          return;
+        }
+        tbody.innerHTML = '';
+        for (const nv of ds) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${nv.ma_nhan_su}</td>
+            <td class="clickable-name" data-ma="${nv.ma_nhan_su}">${nv.ho} ${nv.ten}</td>
+            <td>${nv.email}</td>
+            <td>${nv.chuc_danh || ''}</td>
+            <td>${nv.phong_ban || ''}</td>
+            <td>${nv.ban || ''}</td>
+            <td>${formatDate(nv.ngay_sinh)}</td>
+            <td>${nv.so_dien_thoai || ''}</td>
+            <td>
+              <button class="action-btn btn-edit" data-ma="${nv.ma_nhan_su}">Sửa</button>
+              <button class="action-btn btn-delete" data-ma="${nv.ma_nhan_su}">Xóa</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+
+        }
+      } catch (e) {
+        console.error(e);
+        document.querySelector('#table-nhanvien tbody').innerHTML =
+          '<tr><td colspan="9" style="color:red">Lỗi kết nối server</td></tr>';
+      }
+    }
+
+    async function loadCoursesForEmployee(ma_nhan_su) {
+      try {
+        const resp = await fetch(`${API_BASE}/nhan_vien/khoa_hoc/${encodeURIComponent(ma_nhan_su)}`);
+        if (!resp.ok) return [];
+        const data = await resp.json();
+        return data.danh_sach || [];
+      } catch (e) {
+        console.error(e);
+        return [];
+      }
+    }
+
+    // ====== Course modal ======
+    function openCourseModal(ma_nhan_su, ho_ten) {
+      document.getElementById('courseModalTitle').textContent = `Khóa học của ${ho_ten}`;
+      document.getElementById('courseModalBackdrop').style.display = 'flex';
+      document.getElementById('courseContent').innerHTML = '<p>Đang tải...</p>';
+      loadCoursesForModal(ma_nhan_su);
+    }
+
+    function closeCourseModal() {
+      document.getElementById('courseModalBackdrop').style.display = 'none';
+    }
+
+    async function loadCoursesForModal(ma_nhan_su) {
+      try {
+        const resp = await fetch(`${API_BASE}/nhan_vien/khoa_hoc/${encodeURIComponent(ma_nhan_su)}`);
+        const data = await resp.json();
+        if (!resp.ok) {
+          document.getElementById('courseContent').innerHTML = `<p style="color:red">${data.message || 'Lỗi tải dữ liệu'}</p>`;
+          return;
+        }
+        const courses = data.danh_sach || [];
+        if (courses.length === 0) {
+          document.getElementById('courseContent').innerHTML = '<p>Không có khóa học nào</p>';
+          return;
+        }
+        let html = '<table class="course-table"><thead><tr><th>Tên khóa học</th><th>Mô tả</th><th>Ngày bắt đầu</th><th>Ngày kết thúc</th><th>Ngày đăng ký</th></tr></thead><tbody>';
+        for (const c of courses) {
+          html += `
+            <tr>
+              <td>${c.ten_khoa_hoc}</td>
+              <td>${c.mo_ta || ''}</td>
+              <td>${formatDate(c.ngay_bat_dau)}</td>
+              <td>${formatDate(c.ngay_ket_thuc)}</td>
+              <td>${formatDate(c.ngay_dang_ky)}</td>
+            </tr>
+          `;
+        }
+        html += '</tbody></table>';
+        document.getElementById('courseContent').innerHTML = html;
+      } catch (e) {
+        console.error(e);
+        document.getElementById('courseContent').innerHTML = '<p style="color:red">Lỗi kết nối server</p>';
+      }
+    }
+
+    // ====== Edit modal logic ======
+    function openEditModal(prefill) {
+      document.getElementById('editModalBackdrop').style.display = 'flex';
+      document.getElementById('editModalTitle').textContent = prefill ? 'Sửa nhân viên' : 'Thêm nhân viên';
+      document.getElementById('maRow').style.display = prefill ? 'flex' : 'none';
+      document.getElementById('e_ma').value = prefill?.ma_nhan_su || '';
+      document.getElementById('e_ma').readOnly = !!prefill; // readonly for edit
+      document.getElementById('e_ho').value = prefill?.ho || '';
+      document.getElementById('e_ten').value = prefill?.ten || '';
+      document.getElementById('e_chuc_danh').value = prefill?.chuc_danh || '';
+      document.getElementById('e_phong_ban').value = prefill?.phong_ban || '';
+      document.getElementById('e_ban').value = prefill?.ban || '';
+      const toDateInput = d => {
+        if (!d) return '';
+        const dd = new Date(d);
+        const y = dd.getFullYear();
+        const m = String(dd.getMonth()+1).padStart(2,'0');
+        const day = String(dd.getDate()).padStart(2,'0');
+        return `${y}-${m}-${day}`;
+      };
+      document.getElementById('e_ngay_sinh').value = toDateInput(prefill?.ngay_sinh);
+      document.getElementById('e_email').value = prefill?.email || '';
+      document.getElementById('e_sdt').value = prefill?.so_dien_thoai || '';
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModalBackdrop').style.display = 'none';
+    }
+
+    // handle submit
+    document.getElementById('editForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const ma = document.getElementById('e_ma').value.trim();
+      const isEdit = document.getElementById('maRow').style.display === 'flex';
+
+      const body = {
+        ho: document.getElementById('e_ho').value.trim(),
+        ten: document.getElementById('e_ten').value.trim(),
+        chuc_danh: document.getElementById('e_chuc_danh').value || undefined,
+        phong_ban: document.getElementById('e_phong_ban').value.trim() || undefined,
+        ban: document.getElementById('e_ban').value.trim() || undefined,
+        ngay_sinh: document.getElementById('e_ngay_sinh').value || undefined,
+        email: document.getElementById('e_email').value.trim(),
+        so_dien_thoai: document.getElementById('e_sdt').value.trim() || undefined
+      };
+
+      if (isEdit) {
+        body.ma_nhan_su = ma; // for edit, include ma_nhan_su in body if needed, but API uses params
+      }
+
+      try {
+        const method = isEdit ? 'PUT' : 'POST';
+        const url = isEdit ? `${API_BASE}/nhan_vien/${encodeURIComponent(ma)}` : `${API_BASE}/nhan_vien`;
+        const resp = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          alert('Lỗi: ' + (data.message || resp.statusText));
+          return;
+        }
+        alert(data.message || (isEdit ? 'Cập nhật thành công' : 'Thêm thành công'));
+        closeEditModal();
+        loadNhanVien();
+      } catch (err) {
+        console.error(err);
+        alert('Lỗi kết nối server');
+      }
+    });
+
+    // Delegated click handler for edit/delete and add
+    document.getElementById('table-nhanvien').addEventListener('click', async (ev) => {
+      const editBtn = ev.target.closest('.btn-edit');
+      const delBtn = ev.target.closest('.btn-delete');
+      const nameCell = ev.target.closest('.clickable-name');
+
+      if (nameCell) {
+        const ma = nameCell.getAttribute('data-ma');
+        const ho_ten = nameCell.textContent;
+        openCourseModal(ma, ho_ten);
+        return;
+      }
+
+      if (editBtn) {
+        const ma = editBtn.getAttribute('data-ma');
+        try {
+          const resp = await fetch(`${API_BASE}/nhan_vien`);
+          const data = await resp.json();
+          if (!resp.ok) {
+            alert('Không lấy được dữ liệu nhân viên: ' + (data.message || resp.statusText));
+            return;
+          }
+          const ds = data.danh_sach || data.rows || data.data || [];
+          const nv = ds.find(x => x.ma_nhan_su == ma);
+          if (!nv) {
+            alert('Không tìm thấy nhân viên để sửa');
+            return;
+          }
+          openEditModal(nv);
+        } catch (err) {
+          console.error(err);
+          alert('Lỗi kết nối server');
+        }
+        return;
+      }
+
+      if (delBtn) {
+        const ma = delBtn.getAttribute('data-ma');
+        if (!confirm(`Xác nhận xóa nhân viên ${ma} ?`)) return;
+        try {
+          const resp = await fetch(`${API_BASE}/nhan_vien/${encodeURIComponent(ma)}`, { method: 'DELETE' });
+          const data = await resp.json();
+          if (!resp.ok) {
+            alert('Lỗi khi xóa: ' + (data.message || resp.statusText));
+            return;
+          }
+          alert(data.message || 'Xóa thành công');
+          loadNhanVien();
+        } catch (err) {
+          console.error(err);
+          alert('Lỗi kết nối server');
+        }
+        return;
+      }
+    });
+
+    document.getElementById('addBtn').addEventListener('click', () => openEditModal(null));
+
+    document.addEventListener('DOMContentLoaded', loadNhanVien);
+  </script>
+</body>
+</html>

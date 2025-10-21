@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Danh sách khóa học</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1000px; margin: 30px auto; }
+    h1 { text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #aaa; padding: 8px; text-align: left; }
+    th { background: #f2f2f2; }
+    tr:nth-child(even) { background: #fafafa; }
+    a.course-link { color: #1976D2; cursor: pointer; text-decoration: underline; }
+    .sub-row { background-color: #f9f9f9; font-size: 14px; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.4);
+      display: none; align-items: center; justify-content: center; z-index: 999;
+    }
+    .modal {
+      width: min(900px, 95vw); max-height: 90vh; overflow: auto;
+      background: #fff; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .modal-header, .modal-footer { padding: 12px 16px; border-bottom: 1px solid #eee; }
+    .modal-footer { border-top: 1px solid #eee; border-bottom: none; display:flex; gap:8px; justify-content: space-between; align-items:center; }
+    .modal-body { padding: 10px 16px 16px; }
+    .modal-title { font-size: 18px; font-weight: bold; }
+    .modal-actions { display: flex; gap: 8px; align-items: center; }
+    .btn { background:#2196F3; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; }
+    .btn:hover { background:#1976D2; }
+    .btn.secondary { background:#eee; color:#333; }
+    .btn.secondary:hover { background:#ddd; }
+    .search-input { padding:8px 10px; border:1px solid #bbb; border-radius:4px; min-width: 220px; }
+    .muted { color:#666; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Danh sách khóa học</h1>
+  <button class="btn" onclick="window.location.href='hocvien.html'">➡️ Danh sách học viên</button>
+
+  <table id="table-khoahoc">
+    <thead>
+      <tr>
+        <th>Mã khóa học</th>
+        <th>Tên khóa học</th>
+        <th>Ngày bắt đầu</th>
+        <th>Ngày kết thúc</th>
+        <th>Bắt buộc</th>
+        <th>Sức chứa</th>
+        <th>Số buổi/tuần</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- Modal học viên -->
+  <div id="hvModalBackdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="hvModalTitle">Học viên</div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-actions" style="margin-bottom:10px;">
+          <input id="hvSearch" class="search-input" type="text" placeholder="Tìm theo họ, tên, email, phòng ban..."/>
+          <span id="hvSummary" class="muted"></span>
+          <div style="margin-left:auto; display:flex; gap:8px;">
+            <button class="btn secondary" onclick="closeHvModal()">Đóng</button>
+          </div>
+        </div>
+        <table id="table-hocvien">
+          <thead>
+            <tr>
+              <th>Mã HV</th>
+              <th>Họ tên</th>
+              <th>Email</th>
+              <th>Phòng ban</th>
+              <th>Ngày đăng ký</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <div id="hvPaginationInfo" class="muted"></div>
+        <div>
+          <button class="btn secondary" id="btnPrev" onclick="changeHvPage(-1)">« Trước</button>
+          <button class="btn secondary" id="btnNext" onclick="changeHvPage(1)">Tiếp »</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000/api';
+    // ====== Utils ======
+    function formatDate(dateString) {
+      if (!dateString) return '';
+      const d = new Date(dateString);
+      const dd = String(d.getDate()).padStart(2,'0');
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+
+    // ====== Load khóa học ======
+    async function loadKhoaHoc() {
+      const tbody = document.querySelector('#table-khoahoc tbody');
+      tbody.innerHTML = '<tr><td colspan="7">Đang tải...</td></tr>';
+      try {
+        const resp = await fetch(`${API_BASE}/khoa_hoc`);
+        const data = await resp.json();
+        if (!resp.ok) {
+          tbody.innerHTML = `<tr><td colspan="7" style="color:red">${data.message || 'Lỗi tải dữ liệu'}</td></tr>`;
+          return;
+        }
+        const ds = data.danh_sach || data.rows || [];
+        if (ds.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7">Chưa có khóa học nào</td></tr>';
+          return;
+        }
+        tbody.innerHTML = '';
+        ds.forEach(kh => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${kh.ma_khoa_hoc}</td>
+            <td><a class="course-link" data-ma="${kh.ma_khoa_hoc}">${kh.ten_khoa_hoc}</a></td>
+            <td>${formatDate(kh.ngay_bat_dau)}</td>
+            <td>${formatDate(kh.ngay_ket_thuc)}</td>
+            <td>${kh.bat_buoc ? 'Có' : 'Không'}</td>
+            <td>${kh.suc_chua_toi_da}</td>
+            <td>${kh.so_buoi_hoc_moi_tuan}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        // attach click
+        tbody.querySelectorAll('a.course-link').forEach(a => {
+          a.addEventListener('click', () => {
+            const ma = a.getAttribute('data-ma');
+            const ten = a.textContent.trim();
+            openHvModal(ma, ten);
+          });
+        });
+      } catch (e) {
+        console.error(e);
+        document.querySelector('#table-khoahoc tbody').innerHTML =
+          '<tr><td colspan="7" style="color:red">Lỗi kết nối server</td></tr>';
+      }
+    }
+
+    // ====== Modal học viên theo khóa ======
+    let hvState = {
+      ma_khoa_hoc: '',
+      ten_khoa_hoc: '',
+      page: 1,
+      page_size: 10,
+      q: ''
+    };
+
+    function openHvModal(ma, ten) {
+      hvState = { ma_khoa_hoc: ma, ten_khoa_hoc: ten, page: 1, page_size: 10, q: '' };
+      document.getElementById('hvModalTitle').textContent =
+        `Học viên của khóa: ${ten} (${ma})`;
+      document.getElementById('hvSearch').value = '';
+      document.getElementById('hvModalBackdrop').style.display = 'flex';
+      loadHvPage();
+    }
+
+    function closeHvModal() {
+      document.getElementById('hvModalBackdrop').style.display = 'none';
+    }
+
+    function changeHvPage(delta) {
+      hvState.page = Math.max(1, hvState.page + delta);
+      loadHvPage();
+    }
+
+    // debounce search
+    let searchTimer = null;
+    document.getElementById('hvSearch').addEventListener('input', (e) => {
+      const val = e.target.value.trim();
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        hvState.q = val;
+        hvState.page = 1; // reset về trang 1 khi tìm
+        loadHvPage();
+      }, 350);
+    });
+
+    async function loadHvPage() {
+      const tbody = document.querySelector('#table-hocvien tbody');
+      tbody.innerHTML = '<tr><td colspan="5">Đang tải...</td></tr>';
+
+      const params = new URLSearchParams({
+        page: hvState.page,
+        page_size: hvState.page_size,
+        q: hvState.q
+      });
+      try {
+        const url = `${API_BASE}/khoa_hoc/${encodeURIComponent(hvState.ma_khoa_hoc)}/hoc_vien?` + params.toString();
+        const resp = await fetch(url);
+        const data = await resp.json();
+
+        if (!resp.ok || data.ok === false) {
+          tbody.innerHTML = `<tr><td colspan="5" style="color:red">${data.message || 'Lỗi tải học viên'}</td></tr>`;
+          document.getElementById('hvPaginationInfo').textContent = '';
+          document.getElementById('hvSummary').textContent = '';
+          return;
+        }
+
+        const rows = data.danh_sach || data.data || [];
+        const page = data.pagination?.page || data.page || hvState.page;
+        const pageSize = data.pagination?.page_size || data.page_size || hvState.page_size;
+        const total = data.pagination?.total || data.total || rows.length;
+        const totalPages = data.pagination?.total_pages || Math.max(1, Math.ceil((total || 0) / pageSize));
+
+        // Fill table
+        if (rows.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5">Không có học viên phù hợp</td></tr>';
+        } else {
+          tbody.innerHTML = '';
+          rows.forEach(r => {
+            const hoTen = (r.ho && r.ten) ? `${r.ho} ${r.ten}`.trim() : (r.ho_ten || '');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${r.ma_hoc_vien || ''}</td>
+              <td>${hoTen}</td>
+              <td>${r.email || ''}</td>
+              <td>${r.phong_ban || ''}</td>
+              <td>${formatDate(r.ngay_dang_ky)}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+
+        // Pagination & summary
+        document.getElementById('hvPaginationInfo').textContent =
+          `Trang ${page}/${totalPages} — tổng ${total || rows.length} học viên`;
+        document.getElementById('hvSummary').textContent =
+          hvState.q ? `Đang lọc theo: "${hvState.q}"` : '';
+
+        // Enable/disable buttons
+        document.getElementById('btnPrev').disabled = page <= 1;
+        document.getElementById('btnNext').disabled = page >= totalPages;
+
+        // Sync state in case backend trả số trang khác
+        hvState.page = page;
+        hvState.page_size = pageSize;
+      } catch (e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="5" style="color:red">Lỗi kết nối server</td></tr>';
+        document.getElementById('hvPaginationInfo').textContent = '';
+        document.getElementById('hvSummary').textContent = '';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadKhoaHoc);
+  </script>
+</body>
+</html>

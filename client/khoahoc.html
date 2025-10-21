@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Danh sách khóa học</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1000px; margin: 30px auto; }
+    h1 { text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #aaa; padding: 8px; text-align: left; }
+    th { background: #f2f2f2; }
+    tr:nth-child(even) { background: #fafafa; }
+    a.course-link { color: #1976D2; cursor: pointer; text-decoration: underline; }
+    .sub-row { background-color: #f9f9f9; font-size: 14px; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.4);
+      display: none; align-items: center; justify-content: center; z-index: 999;
+    }
+    .modal {
+      width: min(900px, 95vw); max-height: 90vh; overflow: auto;
+      background: #fff; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .modal-header, .modal-footer { padding: 12px 16px; border-bottom: 1px solid #eee; }
+    .modal-footer { border-top: 1px solid #eee; border-bottom: none; display:flex; gap:8px; justify-content: space-between; align-items:center; }
+    .modal-body { padding: 10px 16px 16px; }
+    .modal-title { font-size: 18px; font-weight: bold; }
+    .modal-actions { display: flex; gap: 8px; align-items: center; }
+    .btn { background:#2196F3; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; }
+    .btn:hover { background:#1976D2; }
+    .btn.secondary { background:#eee; color:#333; }
+    .btn.secondary:hover { background:#ddd; }
+    .search-input { padding:8px 10px; border:1px solid #bbb; border-radius:4px; min-width: 220px; }
+    .muted { color:#666; font-size: 13px; }
+
+    /* small action buttons in table */
+    .action-btn { padding:4px 8px; font-size:13px; margin-left:6px; }
+    .btn-edit { background:#4CAF50; }
+    .btn-edit:hover { background:#388E3C; }
+    .btn-delete { background:#F44336; }
+    .btn-delete:hover { background:#D32F2F; }
+
+    /* simple form styles */
+    .form-row { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+    .form-row label { min-width:160px; font-size:14px; }
+    .form-row input[type="text"], .form-row input[type="date"], .form-row input[type="number"], .form-row textarea, .form-row select {
+      flex:1; padding:6px 8px; border:1px solid #bbb; border-radius:4px;
+    }
+    textarea.json { height:120px; font-family:monospace; font-size:13px; }
+
+    /* schedule editor */
+    .schedules { border:1px dashed #ddd; padding:8px; border-radius:6px; background:#fafafa; }
+    .schedule-row { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+    .schedule-row input[type="text"], .schedule-row input[type="time"] { padding:6px; border:1px solid #ccc; border-radius:4px; }
+    .schedule-row .shrink { width:120px; }
+    .schedule-row .remove-sched { background:#F44336; color:#fff; padding:6px 8px; border:none; border-radius:4px; cursor:pointer; }
+    .schedule-row .remove-sched:hover { background:#D32F2F; }
+    .add-sched { margin-top:6px; }
+
+    /* ns-item for nhân viên list */
+    .ns-item { padding:8px; border-bottom:1px solid #eee; cursor:pointer; }
+    .ns-item:hover { background:#f5f5f5; }
+  </style>
+</head>
+<body>
+  <h1>Danh sách khóa học</h1>
+  <!-- <button class="btn" onclick="window.location.href='nhanvien.html'">➡️ Danh sách nhân viên</button> -->
+
+  <div style="margin-bottom:10px; display: flex; justify-content: space-between;">
+     <a href="nhanvien.html" class="btn" id="khochoc">Trở về </a>
+    <button class="btn" id="addBtn">➕ Thêm khóa học</button>
+    
+  </div>
+
+  <table id="table-khoahoc">
+    <thead>
+      <tr>
+        <th>Mã khóa học</th>
+        <th>Tên khóa học</th>
+        <th>Ngày bắt đầu</th>
+        <th>Ngày kết thúc</th>
+        <th>Bắt buộc</th>
+        <th>Sức chứa</th>
+        <th>Số buổi/tuần</th>
+        <th>Hành động</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- Modal học viên -->
+  <div id="hvModalBackdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="hvModalTitle">
+      <div class="modal-header">
+        <div class="modal-title" id="hvModalTitle">Học viên</div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-actions" style="margin-bottom:10px;">
+          <input id="hvSearch" class="search-input" type="text" placeholder="Tìm theo họ, tên, email, phòng ban..."/>
+          <span id="hvSummary" class="muted"></span>
+          <div style="margin-left:auto; display:flex; gap:8px;">
+            <button class="btn" id="addHvBtn">➕ Thêm học viên</button>
+            <button class="btn secondary" onclick="closeHvModal()">Đóng</button>
+          </div>
+        </div>
+        <table id="table-hocvien">
+          <thead>
+            <tr>
+              <th>Mã HV</th>
+              <th>Họ tên</th>
+              <th>Email</th>
+              <th>Phòng ban</th>
+              <th>Ngày đăng ký</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <div id="hvPaginationInfo" class="muted"></div>
+        <div>
+          <button class="btn secondary" id="btnPrev" onclick="changeHvPage(-1)">« Trước</button>
+          <button class="btn secondary" id="btnNext" onclick="changeHvPage(1)">Tiếp »</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal thêm học viên -->
+  <div id="addHvModalBackdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="addHvModalTitle">
+      <div class="modal-header">
+        <div class="modal-title" id="addHvModalTitle">Thêm học viên vào khóa học</div>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:10px;">
+          <input id="addHvSearch" class="search-input" type="text" placeholder="Tìm nhân viên chưa đăng ký..."/>
+        </div>
+        <div id="addHvList" style="max-height:300px; overflow:auto; border:1px solid #ddd; padding:8px;">
+          <!-- List nhân viên -->
+        </div>
+        <form id="addHvForm" style="margin-top:10px;">
+          <div class="form-row">
+            <label>Ngày đăng ký</label>
+            <input type="date" id="addHvNgayDangKy" required />
+          </div>
+          <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+            <button type="button" class="btn secondary" onclick="closeAddHvModal()">Hủy</button>
+            <button type="submit" class="btn">Thêm</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit modal (multiple fields + schedule editor) -->
+  <div id="editModalBackdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+      <div class="modal-header">
+        <div class="modal-title" id="editModalTitle">Sửa khóa học</div>
+      </div>
+      <div class="modal-body">
+        <form id="editForm">
+          <div class="form-row" id="maRow"><label>Mã khóa học</label><input type="text" id="e_ma" readonly /></div>
+          <div class="form-row"><label>Tên khóa học</label><input type="text" id="e_ten" /></div>
+          <div class="form-row"><label>Mô tả</label><input type="text" id="e_mota" /></div>
+          <div class="form-row"><label>Ngày bắt đầu</label><input type="date" id="e_ngaybd" /></div>
+          <div class="form-row"><label>Ngày kết thúc</label><input type="date" id="e_ngaykt" /></div>
+          <div class="form-row"><label>Bắt buộc</label>
+            <select id="e_batbuoc"><option value="1">Có</option><option value="0">Không</option></select>
+          </div>
+          <div class="form-row"><label>Sức chứa tối đa</label><input type="number" id="e_succhua" min="1" /></div>
+          <div class="form-row"><label>Số buổi/tuần</label><input type="number" id="e_sobuoi" min="0" readonly /></div>
+
+          <div style="margin-top:8px; margin-bottom:6px; font-size:13px; color:#444;">
+            Lịch học — thêm/sửa hàng bên dưới. Nếu muốn giữ nguyên lịch, không chỉnh gì và để nguyên các hàng.
+          </div>
+
+          <div class="form-row" style="flex-direction:column;">
+            <div class="schedules" id="e_lich_rows"></div>
+            <div style="display:flex; justify-content:flex-end;">
+              <button type="button" class="btn secondary add-sched" id="addScheduleBtn">+ Thêm lịch</button>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+            <button type="button" class="btn secondary" onclick="closeEditModal()">Hủy</button>
+            <button type="submit" class="btn">Lưu</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+   const API_BASE = '/api';
+
+
+    // ====== Utils ======
+    function formatDate(dateString) {
+      if (!dateString) return '';
+      const d = new Date(dateString);
+      const dd = String(d.getDate()).padStart(2,'0');
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+
+    // ====== Load khóa học ======
+    async function loadKhoaHoc() {
+      const tbody = document.querySelector('#table-khoahoc tbody');
+      tbody.innerHTML = '<tr><td colspan="8">Đang tải...</td></tr>';
+      try {
+        const resp = await fetch(`${API_BASE}/khoa_hoc`);
+        const data = await resp.json();
+        if (!resp.ok) {
+          tbody.innerHTML = `<tr><td colspan="8" style="color:red">${data.message || 'Lỗi tải dữ liệu'}</td></tr>`;
+          return;
+        }
+        const ds = data.danh_sach || data.rows || data.data || [];
+        if (ds.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8">Chưa có khóa học nào</td></tr>';
+          return;
+        }
+        tbody.innerHTML = '';
+        ds.forEach(kh => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${kh.ma_khoa_hoc}</td>
+            <td><a class="course-link" data-ma="${kh.ma_khoa_hoc}">${kh.ten_khoa_hoc}</a></td>
+            <td>${formatDate(kh.ngay_bat_dau)}</td>
+            <td>${formatDate(kh.ngay_ket_thuc)}</td>
+            <td>${kh.bat_buoc ? 'Có' : 'Không'}</td>
+            <td>${kh.suc_chua_toi_da}</td>
+            <td>${kh.so_buoi_hoc_moi_tuan}</td>
+            <td>
+              <button class="action-btn btn-edit" data-ma="${kh.ma_khoa_hoc}">Sửa</button>
+              <button class="action-btn btn-delete" data-ma="${kh.ma_khoa_hoc}">Xóa</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+
+          if (kh.lich_hoc && kh.lich_hoc.length > 0) {
+            kh.lich_hoc.forEach(lich => {
+              const subTr = document.createElement('tr');
+              subTr.classList.add('sub-row');
+              subTr.innerHTML = `
+                <td></td>
+                <td colspan="2">🗓️ ${lich.thu}</td>
+                <td colspan="2">⏰ ${lich.gio_bat_dau} - ${lich.gio_ket_thuc}</td>
+                <td colspan="2">📍 ${lich.dia_diem}</td>
+                <td></td>
+              `;
+              tbody.appendChild(subTr);
+            });
+          }
+        });
+      } catch (e) {
+        console.error(e);
+        document.querySelector('#table-khoahoc tbody').innerHTML =
+          '<tr><td colspan="8" style="color:red">Lỗi kết nối server</td></tr>';
+      }
+    }
+
+    // ====== Schedule editor helpers ======
+    function createScheduleRow(prefill) {
+      const div = document.createElement('div');
+      div.className = 'schedule-row';
+      div.innerHTML = `
+        <input class="shrink" type="text" name="thu" placeholder="Thứ (ví dụ: Thứ Hai)" value="${(prefill && prefill.thu) ? prefill.thu.replace(/"/g,'&quot;') : ''}" />
+        <input type="time" name="gio_bat_dau" value="${(prefill && prefill.gio_bat_dau) ? prefill.gio_bat_dau : ''}" />
+        <input type="time" name="gio_ket_thuc" value="${(prefill && prefill.gio_ket_thuc) ? prefill.gio_ket_thuc : ''}" />
+        <input type="text" name="dia_diem" placeholder="Địa điểm" value="${(prefill && prefill.dia_diem) ? prefill.dia_diem.replace(/"/g,'&quot;') : ''}" />
+        <button type="button" class="remove-sched">X</button>
+      `;
+
+      const removeBtn = div.querySelector('.remove-sched');
+      removeBtn.addEventListener('click', () => {
+        div.remove();
+        syncSoBuoi();
+      });
+
+      // update count when any input in the row changes
+      const inputs = div.querySelectorAll('input');
+      inputs.forEach(i => i.addEventListener('input', () => syncSoBuoi()));
+
+      return div;
+    }
+
+    function clearScheduleEditor() {
+      const container = document.getElementById('e_lich_rows');
+      container.innerHTML = '';
+    }
+
+    function addScheduleRow(prefill) {
+      document.getElementById('e_lich_rows').appendChild(createScheduleRow(prefill));
+      // ensure UI count updates immediately when a row is added
+      syncSoBuoi();
+    }
+
+    document.getElementById('addScheduleBtn').addEventListener('click', () => addScheduleRow());
+
+    // keep so_buoi input in sync with number of schedule rows (count rows so add/remove updates immediately)
+    function syncSoBuoi() {
+      const rows = document.querySelectorAll('#e_lich_rows .schedule-row');
+      const count = rows.length;
+      const sobuoiInput = document.getElementById('e_sobuoi');
+      if (sobuoiInput) sobuoiInput.value = count;
+    }
+
+    // ====== Edit modal logic (use schedule editor) ======
+    function openEditModal(prefill) {
+      document.getElementById('editModalBackdrop').style.display = 'flex';
+      document.getElementById('editModalTitle').textContent = prefill ? 'Sửa khóa học' : 'Thêm khóa học';
+      document.getElementById('maRow').style.display = prefill ? 'flex' : 'none';
+      document.getElementById('e_ma').value = prefill?.ma_khoa_hoc || '';
+      document.getElementById('e_ten').value = prefill?.ten_khoa_hoc || '';
+      document.getElementById('e_mota').value = prefill?.mo_ta || '';
+      const toDateInput = d => {
+        if (!d) return '';
+        const dd = new Date(d);
+        const y = dd.getFullYear();
+        const m = String(dd.getMonth()+1).padStart(2,'0');
+        const day = String(dd.getDate()).padStart(2,'0');
+        return `${y}-${m}-${day}`;
+      };
+      document.getElementById('e_ngaybd').value = toDateInput(prefill?.ngay_bat_dau);
+      document.getElementById('e_ngaykt').value = toDateInput(prefill?.ngay_ket_thuc);
+      document.getElementById('e_batbuoc').value = prefill?.bat_buoc ? '1' : '0';
+      document.getElementById('e_succhua').value = prefill?.suc_chua_toi_da ?? '';
+      // preferrable: derive so_buoi from schedules if not present
+      document.getElementById('e_sobuoi').value = (typeof prefill?.so_buoi_hoc_moi_tuan !== 'undefined' && prefill?.so_buoi_hoc_moi_tuan !== null)
+        ? prefill.so_buoi_hoc_moi_tuan
+        : (Array.isArray(prefill?.lich_hoc) ? prefill.lich_hoc.length : 0);
+
+      // fill schedule editor
+      clearScheduleEditor();
+      if (prefill?.lich_hoc && Array.isArray(prefill?.lich_hoc) && prefill.lich_hoc.length) {
+        prefill.lich_hoc.forEach(l => addScheduleRow(l));
+      } else {
+        // add one empty row by default
+        addScheduleRow();
+      }
+
+      // ensure count is correct after rows added
+      syncSoBuoi();
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModalBackdrop').style.display = 'none';
+    }
+
+    // handle submit
+    document.getElementById('editForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const ma = document.getElementById('e_ma').value.trim();
+      const isEdit = document.getElementById('maRow').style.display === 'flex';
+
+      // build lich_hoc from schedule editor rows
+      const rows = Array.from(document.querySelectorAll('#e_lich_rows .schedule-row'));
+      const lichs = [];
+      for (const r of rows) {
+        const thu = r.querySelector('input[name="thu"]').value.trim();
+        const gio_bat_dau = r.querySelector('input[name="gio_bat_dau"]').value;
+        const gio_ket_thuc = r.querySelector('input[name="gio_ket_thuc"]').value;
+        const dia_diem = r.querySelector('input[name="dia_diem"]').value.trim();
+        // skip completely empty rows
+        if (!thu && !gio_bat_dau && !gio_ket_thuc && !dia_diem) continue;
+        if (!thu || !gio_bat_dau || !gio_ket_thuc || !dia_diem) {
+          alert('Mỗi lịch phải có: thứ, giờ bắt đầu, giờ kết thúc, địa điểm');
+          return;
+        }
+        if (gio_bat_dau >= gio_ket_thuc) {
+          alert(`Giờ kết thúc phải sau giờ bắt đầu cho ${thu}`);
+          return;
+        }
+        lichs.push({ thu, gio_bat_dau, gio_ket_thuc, dia_diem });
+      }
+
+      const body = {
+        ten_khoa_hoc: document.getElementById('e_ten').value.trim(),
+        mo_ta: document.getElementById('e_mota').value.trim(),
+        ngay_bat_dau: document.getElementById('e_ngaybd').value || undefined,
+        ngay_ket_thuc: document.getElementById('e_ngaykt').value || undefined,
+        bat_buoc: document.getElementById('e_batbuoc').value === '1',
+        suc_chua_toi_da: document.getElementById('e_succhua').value ? parseInt(document.getElementById('e_succhua').value,10) : undefined
+      };
+
+      // include schedules (client changed schedules) and include matching so_buoi to keep server validation happy
+      if (lichs.length === 0) {
+        if (!confirm('Bạn đã xóa tất cả lịch. Tiếp tục gửi sẽ loại bỏ lịch hiện có. Xác nhận?')) {
+          return;
+        }
+        body.lich_hoc = [];
+        body.so_buoi_hoc_moi_tuan = 0;
+      } else {
+        body.lich_hoc = lichs;
+        // sync count to number of non-empty schedule rows
+        body.so_buoi_hoc_moi_tuan = lichs.length;
+      }
+
+      try {
+        const method = isEdit ? 'PUT' : 'POST';
+        const url = isEdit ? `${API_BASE}/khoa_hoc/${encodeURIComponent(ma)}` : `${API_BASE}/khoa_hoc`;
+        const resp = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          alert('Lỗi: ' + (data.message || resp.statusText));
+          return;
+        }
+        alert(data.message || (isEdit ? 'Cập nhật thành công' : 'Thêm thành công'));
+        closeEditModal();
+        loadKhoaHoc();
+      } catch (err) {
+        console.error(err);
+        alert('Lỗi kết nối server');
+      }
+    });
+
+    // Delegated click handler for edit/delete and opening modal
+    document.getElementById('table-khoahoc').addEventListener('click', async (ev) => {
+      const editBtn = ev.target.closest('.btn-edit');
+      const delBtn = ev.target.closest('.btn-delete');
+      const courseLink = ev.target.closest('a.course-link');
+
+      if (courseLink) {
+        const ma = courseLink.getAttribute('data-ma');
+        const ten = courseLink.textContent.trim();
+        openHvModal(ma, ten);
+        return;
+      }
+
+      if (editBtn) {
+        const ma = editBtn.getAttribute('data-ma');
+        try {
+          const resp = await fetch(`${API_BASE}/khoa_hoc`);
+          const data = await resp.json();
+          if (!resp.ok) {
+            alert('Không lấy được dữ liệu khóa học: ' + (data.message || resp.statusText));
+            return;
+          }
+          const ds = data.danh_sach || data.rows || data.data || [];
+          const kh = ds.find(x => x.ma_khoa_hoc == ma);
+          if (!kh) {
+            alert('Không tìm thấy khóa học để sửa');
+            return;
+          }
+          openEditModal(kh);
+        } catch (err) {
+          console.error(err);
+          alert('Lỗi kết nối server');
+        }
+        return;
+      }
+
+      if (delBtn) {
+        const ma = delBtn.getAttribute('data-ma');
+        if (!confirm(`Xác nhận xóa khóa học ${ma} ?`)) return;
+        try {
+          const resp = await fetch(`${API_BASE}/khoa_hoc/${encodeURIComponent(ma)}`, { method: 'DELETE' });
+          const data = await resp.json();
+          if (!resp.ok) {
+            alert('Lỗi khi xóa: ' + (data.message || resp.statusText));
+            return;
+          }
+          alert(data.message || 'Xóa thành công');
+          loadKhoaHoc();
+        } catch (err) {
+          console.error(err);
+          alert('Lỗi kết nối server');
+        }
+        return;
+      }
+    });
+
+    // ====== Modal học viên theo khóa ======
+    let hvState = { ma_khoa_hoc: '', ten_khoa_hoc: '', page: 1, page_size: 10, q: '' };
+
+    function openHvModal(ma, ten) {
+      hvState = { ma_khoa_hoc: ma, ten_khoa_hoc: ten, page: 1, page_size: 10, q: '' };
+      document.getElementById('hvModalTitle').textContent =
+        `Học viên của khóa: ${ten} (${ma})`;
+      document.getElementById('hvSearch').value = '';
+      document.getElementById('hvModalBackdrop').style.display = 'flex';
+      loadHvPage();
+    }
+
+    function closeHvModal() {
+      document.getElementById('hvModalBackdrop').style.display = 'none';
+    }
+
+    function changeHvPage(delta) {
+      hvState.page = Math.max(1, hvState.page + delta);
+      loadHvPage();
+    }
+
+    // debounce search
+    let searchTimer = null;
+    document.getElementById('hvSearch').addEventListener('input', (e) => {
+      const val = e.target.value.trim();
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        hvState.q = val;
+        hvState.page = 1; // reset về trang 1 khi tìm
+        loadHvPage();
+      }, 350);
+    });
+
+    async function loadHvPage() {
+      const tbody = document.querySelector('#table-hocvien tbody');
+      tbody.innerHTML = '<tr><td colspan="6">Đang tải...</td></tr>';
+
+      const params = new URLSearchParams({
+        page: hvState.page,
+        page_size: hvState.page_size,
+        q: hvState.q
+      });
+      try {
+        const url = `${API_BASE}/khoa_hoc/${encodeURIComponent(hvState.ma_khoa_hoc)}/hoc_vien?` + params.toString();
+        const resp = await fetch(url);
+        const data = await resp.json();
+
+        if (!resp.ok || data.ok === false) {
+          tbody.innerHTML = `<tr><td colspan="6" style="color:red">${data.message || 'Lỗi tải học viên'}</td></tr>`;
+          document.getElementById('hvPaginationInfo').textContent = '';
+          document.getElementById('hvSummary').textContent = '';
+          return;
+        }
+
+        const rows = data.danh_sach || data.data || [];
+        const page = data.pagination?.page || data.page || hvState.page;
+        const pageSize = data.pagination?.page_size || data.page_size || hvState.page_size;
+        const total = data.pagination?.total || data.total || rows.length;
+        const totalPages = data.pagination?.total_pages || Math.max(1, Math.ceil((total || 0) / pageSize));
+
+        // Fill table
+        if (rows.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6">Không có học viên phù hợp</td></tr>';
+        } else {
+          tbody.innerHTML = '';
+          rows.forEach(r => {
+            const hoTen = (r.ho && r.ten) ? `${r.ho} ${r.ten}`.trim() : (r.ho_ten || '');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${r.ma_hoc_vien || ''}</td>
+              <td>${hoTen}</td>
+              <td>${r.email || ''}</td>
+              <td>${r.phong_ban || ''}</td>
+              <td>${formatDate(r.ngay_dang_ky)}</td>
+              <td><button class="action-btn btn-delete" data-ma="${r.ma_hoc_vien}">Xóa</button></td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+
+        // Pagination & summary
+        document.getElementById('hvPaginationInfo').textContent =
+          `Trang ${page}/${totalPages} — tổng ${total || rows.length} học viên`;
+        document.getElementById('hvSummary').textContent =
+          hvState.q ? `Đang lọc theo: "${hvState.q}"` : '';
+
+        // Enable/disable buttons
+        document.getElementById('btnPrev').disabled = page <= 1;
+        document.getElementById('btnNext').disabled = page >= totalPages;
+
+        // Sync state
+        hvState.page = page;
+        hvState.page_size = pageSize;
+      } catch (e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="6" style="color:red">Lỗi kết nối server</td></tr>';
+        document.getElementById('hvPaginationInfo').textContent = '';
+        document.getElementById('hvSummary').textContent = '';
+      }
+    }
+
+    // Delegated click handler for delete học viên
+    document.getElementById('table-hocvien').addEventListener('click', async (ev) => {
+      const delBtn = ev.target.closest('.btn-delete');
+      if (delBtn) {
+        const maHv = delBtn.getAttribute('data-ma');
+        if (!confirm(`Xác nhận xóa học viên ${maHv}?`)) return;
+        try {
+          const resp = await fetch(`${API_BASE}/khoa_hoc/${encodeURIComponent(hvState.ma_khoa_hoc)}/hoc_vien/${encodeURIComponent(maHv)}`, {
+            method: 'DELETE'
+          });
+          const data = await resp.json();
+          if (!resp.ok) {
+            alert('Lỗi: ' + (data.message || resp.statusText));
+            return;
+          }
+          alert(data.message || 'Xóa học viên thành công');
+          loadHvPage(); // refresh
+        } catch (err) {
+          console.error(err);
+          alert('Lỗi kết nối server');
+        }
+      }
+    });
+
+    // ====== Modal thêm học viên ======
+    let selectedMaNhanSu = null;
+
+    function openAddHvModal() {
+      document.getElementById('addHvModalBackdrop').style.display = 'flex';
+      document.getElementById('addHvNgayDangKy').value = new Date().toISOString().split('T')[0]; // hôm nay
+      selectedMaNhanSu = null;
+      loadNhanSuChuaDangKy('');
+    }
+
+    function closeAddHvModal() {
+      document.getElementById('addHvModalBackdrop').style.display = 'none';
+      document.getElementById('addHvForm').reset();
+      selectedMaNhanSu = null;
+    }
+
+    async function loadNhanSuChuaDangKy(q) {
+      const listDiv = document.getElementById('addHvList');
+      listDiv.innerHTML = '<p>Đang tải...</p>';
+      try {
+        const params = q ? `?q=${encodeURIComponent(q)}` : '';
+        const resp = await fetch(`${API_BASE}/khoa_hoc/${encodeURIComponent(hvState.ma_khoa_hoc)}/nhan_su_chua_dang_ky${params}`);
+        const data = await resp.json();
+        if (!resp.ok) {
+          listDiv.innerHTML = `<p style="color:red">${data.message || 'Lỗi tải dữ liệu'}</p>`;
+          return;
+        }
+        const nsList = data.data || [];
+        if (nsList.length === 0) {
+          listDiv.innerHTML = '<p>Không có nhân viên nào phù hợp</p>';
+          return;
+        }
+        listDiv.innerHTML = '';
+        nsList.forEach(ns => {
+          const div = document.createElement('div');
+          div.className = 'ns-item';
+          div.innerHTML = `
+            <strong>${ns.ho} ${ns.ten}</strong> (${ns.ma_nhan_su})<br>
+            <small>${ns.email} | ${ns.phong_ban || ''}</small>
+          `;
+          div.addEventListener('click', () => {
+            // Select this
+            document.querySelectorAll('.ns-item').forEach(i => i.style.background = '');
+            div.style.background = '#e3f2fd';
+            selectedMaNhanSu = ns.ma_nhan_su;
+          });
+          listDiv.appendChild(div);
+        });
+      } catch (e) {
+        console.error(e);
+        listDiv.innerHTML = '<p style="color:red">Lỗi kết nối server</p>';
+      }
+    }
+
+    // Search nhân viên
+    document.getElementById('addHvSearch').addEventListener('input', (e) => {
+      const q = e.target.value.trim();
+      loadNhanSuChuaDangKy(q);
+    });
+
+    // Submit thêm học viên
+    document.getElementById('addHvForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      if (!selectedMaNhanSu) {
+        alert('Vui lòng chọn nhân viên');
+        return;
+      }
+      const ngayDangKy = document.getElementById('addHvNgayDangKy').value;
+      if (!ngayDangKy) {
+        alert('Vui lòng chọn ngày đăng ký');
+        return;
+      }
+      try {
+        const resp = await fetch(`${API_BASE}/khoa_hoc/${encodeURIComponent(hvState.ma_khoa_hoc)}/hoc_vien`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ma_nhan_su: selectedMaNhanSu,
+            ngay_dang_ky: ngayDangKy
+          })
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          if (data.khoa_hoc_trung && data.khoa_hoc_trung.length > 0) {
+            let msg = data.message + '\nKhóa học trùng:\n';
+            data.khoa_hoc_trung.forEach(c => {
+              msg += `- ${c.ten_khoa_hoc} (${c.ma_khoa_hoc}): ${c.thu} ${c.gio_bat_dau}-${c.gio_ket_thuc}\n`;
+            });
+            alert(msg);
+          } else {
+            alert('Lỗi: ' + (data.message || resp.statusText));
+          }
+          return;
+        }
+        alert(data.message || 'Thêm học viên thành công');
+        closeAddHvModal();
+        loadHvPage(); // refresh list
+      } catch (err) {
+        console.error(err);
+        alert('Lỗi kết nối server');
+      }
+    });
+
+    // Button thêm học viên
+    document.getElementById('addHvBtn').addEventListener('click', openAddHvModal);
+
+    document.getElementById('addBtn').addEventListener('click', () => openEditModal(null));
+
+     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (document.getElementById('hvModalBackdrop').style.display === 'flex') {
+          closeHvModal();
+        } else if (document.getElementById('addHvModalBackdrop').style.display === 'flex') {
+          closeAddHvModal();
+        } else if (document.getElementById('editModalBackdrop').style.display === 'flex') {
+          closeEditModal();
+        }
+      }
+    });
+
+
+    document.addEventListener('DOMContentLoaded', loadKhoaHoc);
+  </script>
+</body>
+</html>
