@@ -22,6 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(express.static(patch.join(__dirname, '../client')));
 
+app.get('/healthz', (req, res) => res.send('OK'));
 
 
 app.get('/', (req, res) => res.sendFile(patch.join(__dirname, '../client/nhanvien.html')));
