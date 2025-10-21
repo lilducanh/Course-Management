@@ -55,42 +55,29 @@ const viewHocVienTheoKhoa = async (req, res) => {
 
 const getNhanSuChuaDangKy = async (req, res) => {
   const { ma_khoa_hoc } = req.params;
-  const q = req.query.q ? req.query.q.trim() : '';
+  const { q } = req.query;
 
   try {
-    // Lấy nhân viên chưa đăng ký khóa học này
-    const sql = `
-      SELECT 
-        ns.ma_nhan_su,
-        ns.ho,
-        ns.ten,
-        ns.email,
-        ns.chuc_danh,
-        ns.phong_ban,
-        ns.ban,
-        ns.so_dien_thoai
+    let query = `
+      SELECT ns.ma_nhan_su, ns.ho, ns.ten, ns.email, ns.phong_ban
       FROM nhan_su ns
-      WHERE NOT EXISTS (
-        SELECT 1 FROM hoc_vien hv WHERE hv.ma_nhan_su = ns.ma_nhan_su AND hv.ma_khoa_hoc = ?
+      WHERE ns.ma_nhan_su NOT IN (
+        SELECT hv.ma_nhan_su FROM hoc_vien hv WHERE hv.ma_khoa_hoc = ?
       )
-      AND (ns.ho LIKE ? OR ns.ten LIKE ? OR ns.email LIKE ? OR ns.phong_ban LIKE ?)
-      ORDER BY ns.ho, ns.ten
+      ORDER BY ns.ma_nhan_su ASC
     `;
+    let params = [ma_khoa_hoc];
 
-    const like = `%${q}%`;
-    const [rows] = await pool.query(sql, [
-      ma_khoa_hoc,
-      like, like, like, like
-    ]);
+    if (q) {
+      query += ' AND (ns.ho LIKE ? OR ns.ten LIKE ? OR ns.email LIKE ? OR ns.phong_ban LIKE ?)';
+      params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+    }
 
-    return res.json({
-      ok: true,
-      data: rows
-    });
-
+    const [rows] = await pool.query(query, params);
+    return res.json({ data: rows });
   } catch (err) {
-    console.error('Lỗi khi lấy nhân viên chưa đăng ký:', err);
-    return res.status(500).json({ ok: false, message: 'Lỗi server' });
+    console.error('Lỗi khi lấy nhân sự chưa đăng ký:', err);
+    return res.status(500).json({ message: 'Lỗi server' });
   }
 };
 
